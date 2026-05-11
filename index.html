@@ -1,0 +1,221 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+<meta name="theme-color" content="#0f1411" />
+<title>Scorecard</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@400;500&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+  html, body { margin: 0; padding: 0; background: #0f1411; }
+  body {
+    font-family: 'Cormorant Garamond', Georgia, serif;
+    color: #e8e3d5;
+    min-height: 100vh;
+    min-height: 100dvh;
+  }
+  button { font-family: inherit; }
+</style>
+</head>
+<body>
+<div id="root"></div>
+
+<script src="https://unpkg.com/react@18/umd/react.production.min.js" crossorigin></script>
+<script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js" crossorigin></script>
+<script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+
+<script type="text/babel">
+const { useState } = React;
+
+const FIELDS = [
+  "Sleep",
+  "Physical health",
+  "Physical energy",
+  "Cognitive ease",
+  "Focus",
+  "Strategic clarity",
+  "Emotional stability",
+];
+
+function Scorecard() {
+  const [ratings, setRatings] = useState(
+    Object.fromEntries(FIELDS.map((f) => [f, 0]))
+  );
+  const [copied, setCopied] = useState(false);
+
+  const setRating = (field, value) => {
+    setRatings((prev) => ({
+      ...prev,
+      [field]: prev[field] === value ? 0 : value,
+    }));
+    setCopied(false);
+  };
+
+  const allRated = FIELDS.every((f) => ratings[f] > 0);
+
+  const buildScorecard = () =>
+    FIELDS.map((f) => `${f} : ${ratings[f]}`).join("\n");
+
+  const handleCopy = async () => {
+    const text = buildScorecard();
+    try {
+      await navigator.clipboard.writeText(text);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    } catch (err) {
+      // Fallback for older mobile browsers
+      const ta = document.createElement("textarea");
+      ta.value = text;
+      ta.style.position = "fixed";
+      ta.style.opacity = "0";
+      document.body.appendChild(ta);
+      ta.select();
+      try {
+        document.execCommand("copy");
+        setCopied(true);
+        setTimeout(() => setCopied(false), 2000);
+      } catch (e) {
+        console.error("Copy failed", e);
+      }
+      document.body.removeChild(ta);
+    }
+  };
+
+  const handleReset = () => {
+    setRatings(Object.fromEntries(FIELDS.map((f) => [f, 0])));
+    setCopied(false);
+  };
+
+  return (
+    <div style={{
+      minHeight: "100vh",
+      padding: "32px 20px",
+      display: "flex",
+      justifyContent: "center",
+    }}>
+      <div style={{ width: "100%", maxWidth: 520 }}>
+        <header style={{ marginBottom: 36 }}>
+          <div style={{
+            fontFamily: "'JetBrains Mono', monospace",
+            fontSize: 11,
+            letterSpacing: "0.25em",
+            color: "#c9a961",
+            textTransform: "uppercase",
+            marginBottom: 8,
+          }}>
+            Daily Check-in
+          </div>
+          <h1 style={{
+            fontSize: 38,
+            fontWeight: 500,
+            letterSpacing: "-0.02em",
+            margin: 0,
+            lineHeight: 1.1,
+          }}>
+            Scorecard
+          </h1>
+        </header>
+
+        <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+          {FIELDS.map((field, i) => (
+            <div key={field} style={{
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "space-between",
+              padding: "18px 0",
+              borderBottom: i === FIELDS.length - 1 ? "none" : "1px solid rgba(232, 227, 213, 0.08)",
+            }}>
+              <span style={{ fontSize: 19, fontWeight: 400 }}>{field}</span>
+              <div style={{ display: "flex", gap: 6 }}>
+                {[1, 2, 3].map((star) => {
+                  const active = ratings[field] >= star;
+                  return (
+                    <button
+                      key={star}
+                      onClick={() => setRating(field, star)}
+                      aria-label={`${field} ${star} star${star > 1 ? "s" : ""}`}
+                      style={{
+                        background: "transparent",
+                        border: "none",
+                        padding: 4,
+                        cursor: "pointer",
+                        fontSize: 26,
+                        lineHeight: 1,
+                        color: active ? "#c9a961" : "rgba(232, 227, 213, 0.2)",
+                        transition: "color 150ms ease",
+                      }}
+                    >★</button>
+                  );
+                })}
+              </div>
+            </div>
+          ))}
+        </div>
+
+        <div style={{
+          marginTop: 36,
+          padding: 20,
+          background: "rgba(232, 227, 213, 0.04)",
+          border: "1px solid rgba(232, 227, 213, 0.08)",
+          borderRadius: 4,
+          fontFamily: "'JetBrains Mono', monospace",
+          fontSize: 13,
+          lineHeight: 1.9,
+          whiteSpace: "pre",
+          color: allRated ? "#e8e3d5" : "rgba(232, 227, 213, 0.35)",
+        }}>
+          {FIELDS.map((f) => `${f} : ${ratings[f] || "_"}`).join("\n")}
+        </div>
+
+        <div style={{ display: "flex", gap: 12, marginTop: 20 }}>
+          <button
+            onClick={handleCopy}
+            disabled={!allRated}
+            style={{
+              flex: 1,
+              padding: "14px 20px",
+              background: allRated ? "#c9a961" : "rgba(201, 169, 97, 0.2)",
+              color: allRated ? "#0f1411" : "rgba(232, 227, 213, 0.4)",
+              border: "none",
+              borderRadius: 4,
+              fontSize: 13,
+              fontFamily: "'JetBrains Mono', monospace",
+              letterSpacing: "0.15em",
+              textTransform: "uppercase",
+              cursor: allRated ? "pointer" : "not-allowed",
+              transition: "background 150ms ease",
+            }}
+          >
+            {copied ? "Copied" : "Copy Scorecard"}
+          </button>
+          <button
+            onClick={handleReset}
+            style={{
+              padding: "14px 20px",
+              background: "transparent",
+              color: "#e8e3d5",
+              border: "1px solid rgba(232, 227, 213, 0.2)",
+              borderRadius: 4,
+              fontSize: 13,
+              fontFamily: "'JetBrains Mono', monospace",
+              letterSpacing: "0.15em",
+              textTransform: "uppercase",
+              cursor: "pointer",
+            }}
+          >
+            Reset
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+const root = ReactDOM.createRoot(document.getElementById("root"));
+root.render(<Scorecard />);
+</script>
+</body>
+</html>
