@@ -118,6 +118,57 @@
     color: rgba(232, 227, 213, 0.75);
     margin: 14px 0 0 0;
   }
+
+  .notes-input {
+    width: 100%;
+    background: rgba(232, 227, 213, 0.04);
+    border: 1px solid rgba(232, 227, 213, 0.12);
+    border-radius: 4;
+    color: #e8e3d5;
+    font-family: 'Cormorant Garamond', Georgia, serif;
+    font-size: 17px;
+    line-height: 1.5;
+    padding: 14px 16px;
+    margin-top: 20px;
+    resize: vertical;
+    min-height: 90px;
+    outline: none;
+    transition: border-color 150ms ease;
+  }
+  .notes-input::placeholder {
+    color: rgba(232, 227, 213, 0.35);
+    font-style: italic;
+  }
+  .notes-input:focus {
+    border-color: rgba(201, 169, 97, 0.5);
+  }
+  .notes-label {
+    display: block;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px;
+    letter-spacing: 0.2em;
+    text-transform: uppercase;
+    color: #c9a961;
+    margin-top: 28px;
+    margin-bottom: 4px;
+  }
+  .notes-helper {
+    font-size: 14px;
+    line-height: 1.5;
+    color: rgba(232, 227, 213, 0.55);
+    margin: 0;
+  }
+  .notes-counter {
+    display: block;
+    text-align: right;
+    margin-top: 6px;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 10px;
+    letter-spacing: 0.1em;
+    color: rgba(232, 227, 213, 0.4);
+  }
+  .notes-counter.near-limit { color: rgba(201, 169, 97, 0.8); }
+  .notes-counter.at-limit { color: rgba(216, 128, 128, 0.9); }
 </style>
 </head>
 <body>
@@ -131,6 +182,7 @@
 const { useState } = React;
 
 const WEBHOOK_URL = "https://n8n.veyyil.com/webhook/recovery";
+const NOTES_MAX_LENGTH = 200;
 
 const FIELDS = [
   { label: "Sleep", key: "sleep" },
@@ -320,6 +372,7 @@ function Scorecard() {
   const [ratings, setRatings] = useState(
     Object.fromEntries(FIELDS.map((f) => [f.key, 0]))
   );
+  const [notes, setNotes] = useState("");
   const [loading, setLoading] = useState(false);
   const [response, setResponse] = useState("");
   const [error, setError] = useState("");
@@ -357,8 +410,14 @@ function Scorecard() {
 
   const allRated = FIELDS.every((f) => ratings[f.key] > 0);
 
-  const buildScorecard = () =>
-    FIELDS.map((f) => `${f.label} : ${ratings[f.key] || "_"}`).join("\n");
+  const buildScorecard = () => {
+    const lines = FIELDS.map((f) => `${f.label} : ${ratings[f.key] || "_"}`);
+    if (notes.trim()) {
+      lines.push("");
+      lines.push("Additional context: " + notes.trim());
+    }
+    return lines.join("\n");
+  };
 
   const buildScorecardWithPrompt = () => {
     const now = new Date();
@@ -399,7 +458,7 @@ function Scorecard() {
       const res = await fetch(WEBHOOK_URL, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(ratings),
+        body: JSON.stringify({ ...ratings, notes: notes.trim() }),
       });
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       const data = await res.json();
@@ -416,6 +475,7 @@ function Scorecard() {
 
   const handleReset = () => {
     setRatings(Object.fromEntries(FIELDS.map((f) => [f.key, 0])));
+    setNotes("");
     setResponse("");
     setError("");
     setCopied("");
@@ -527,6 +587,30 @@ function Scorecard() {
             </div>
           ))}
         </div>
+
+        <label className="notes-label" htmlFor="notes-input">Anything else worth noting</label>
+        <p className="notes-helper">Optional. A line or two of context for a more informed response.</p>
+        <textarea
+          id="notes-input"
+          className="notes-input"
+          value={notes}
+          onChange={(e) => setNotes(e.target.value.slice(0, NOTES_MAX_LENGTH))}
+          maxLength={NOTES_MAX_LENGTH}
+          placeholder="e.g. didn't sleep well last night, big meeting in 2 hours, feeling tense about a decision…"
+          rows={3}
+        />
+       <span
+         className={
+           "notes-counter " +
+           (notes.length >= NOTES_MAX_LENGTH
+             ? "at-limit"
+             : notes.length >= NOTES_MAX_LENGTH * 0.8
+               ? "near-limit"
+               : "")
+         }
+       >
+         {notes.length}/{NOTES_MAX_LENGTH}
+       </span>
 
         {/* Submit button */}
         <button
