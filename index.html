@@ -130,15 +130,29 @@ Score meanings:
 2 = medium, correction needed
 3 = good, stable
 
-Tailor advice based on the time of day (early morning, afternoon, evening, late night). If many factors are low, prioritize rest and recovery over productivity. If only one or two are low, suggest targeted micro-recoveries.
+CONSIDER THE CURRENT TIME OF DAY when giving advice. Before responding, check what time it currently is for me and tailor everything accordingly:
+- Before 9 AM: sunlight, hydration, gentle movement, grounding
+- 9 AM to 12 PM: focused but light tasks
+- 12 PM to 4 PM: short recovery, food, walks, reducing overload
+- 4 PM to 8 PM: slowing down, disengaging from work, lighter tasks
+- 8 PM to 11 PM: wind down, no new work, prepare for rest
+- 11 PM onwards: sleep is the only correct answer for almost any depletion. Do not suggest walks, journaling, or productivity at this hour.
+
+Reference the time of day naturally in the situation report. Match the recovery actions to what is physically and socially appropriate for this hour.
+
+Severity rules, apply BEFORE writing anything:
+- If 5 or more factors are at 1: the only appropriate recovery action is sleep or deep rest. Do not suggest walks, snacks, journaling, or productivity tweaks. Tell me to stop everything and lie down.
+- If 3 to 4 factors are at 1: prioritize rest and minimal effort recovery, light tasks only.
+- If 1 to 2 factors are at 1: targeted micro-recoveries are fine.
+- If Sleep, Physical Health, or Physical Energy is at 1: rest is mandatory regardless of other scores. Recovery actions must include a nap, lying down, or ending the day early.
 
 Output exactly this format:
 
 ## Situation Report
-A flowing 3-sentence paragraph covering: current state, main bottleneck, recovery needed.
+A flowing 3-sentence paragraph covering: current state (mentioning the time of day), main bottleneck, recovery needed.
 
 ## Recovery Actions
-5 to 8 short bullets. Each immediately actionable. Include one bullet for suitable work right now and one for work to avoid right now.
+5 to 8 short bullets. Each immediately actionable. Include one bullet for suitable work right now (or 'no work right now' if depleted) and one for work to avoid right now.
 
 My current scorecard:
 `;
@@ -205,54 +219,64 @@ async function copyToClipboard(text) {
   }
 }
 
-// Extract a short visual concept from the recovery actions section
+// Build a visual concept from the full response: situation report mood + all recovery actions
 function extractVisualConcept(text) {
-  if (!text) return "a person resting peacefully in nature";
+  if (!text) return "a quiet path leading into a misty forest at dawn";
 
-  // Find the Recovery Actions section
-  const actionsMatch = text.match(/##\s*Recovery Actions[\s\S]*?(?=##|$)/i);
-  const actionsBlock = actionsMatch ? actionsMatch[0] : text;
+  const situationMatch = text.match(/##\s*Situation Report([\s\S]*?)(?=##|$)/i);
+  const actionsMatch = text.match(/##\s*Recovery Actions([\s\S]*?)(?=##|$)/i);
 
-  // Pull the first 1-2 bullet items
-  const bullets = actionsBlock
-    .split("\n")
-    .map(l => l.trim())
-    .filter(l => l.startsWith("*") || l.startsWith("-") || l.startsWith("•"))
-    .map(l => l.replace(/^[*\-•]\s*/, "").replace(/\*\*/g, ""));
+  const situationText = situationMatch ? situationMatch[1].toLowerCase() : "";
+  const actionsText = actionsMatch ? actionsMatch[1].toLowerCase() : text.toLowerCase();
+  const combinedText = situationText + " " + actionsText;
 
-  if (bullets.length === 0) return "a person resting peacefully in nature";
-
-  // Concept dictionary: maps activity keywords to visual scenes
+  // Score each scene concept by how many keyword matches it gets across the full text
   const conceptMap = [
-    { keywords: ["walk", "outside", "outdoor", "fresh air", "nature"], scene: "a winding forest path with soft sunlight through trees" },
-    { keywords: ["nap", "sleep", "lying down", "rest in bed", "lie down"], scene: "a quiet bedroom window with morning light and a sleeping cat" },
-    { keywords: ["water", "hydrate", "drink"], scene: "a glass of water on a wooden table by a sunlit window" },
-    { keywords: ["sunlight", "sun", "morning light"], scene: "morning sun rising over distant mountains and mist" },
-    { keywords: ["breath", "breathe", "breathing"], scene: "gentle waves lapping a calm shore at dawn" },
-    { keywords: ["meal", "food", "snack", "eat", "nourish"], scene: "a warm bowl of soup with fresh herbs on a wooden table" },
-    { keywords: ["screen", "phone", "disconnect", "unplug", "device"], scene: "an open notebook and pen beside a window with leaves outside" },
-    { keywords: ["meditate", "stillness", "quiet", "silence"], scene: "a single tree on a hill under a soft cloudy sky" },
-    { keywords: ["stretch", "yoga", "movement", "exercise"], scene: "a quiet morning yoga mat by a window with plants" },
-    { keywords: ["journal", "write", "brain dump", "notebook"], scene: "an open journal with a fountain pen on a wooden desk" },
-    { keywords: ["nature", "park", "garden", "outdoor"], scene: "a peaceful garden with flowing leaves and a stone bench" },
-    { keywords: ["music", "listen", "song"], scene: "a small acoustic guitar resting against a windowsill" },
-    { keywords: ["tea", "coffee", "warm drink"], scene: "a steaming cup of tea on a windowsill at dawn" },
-    { keywords: ["shower", "bath", "wash"], scene: "soft water flowing over smooth river stones" },
-    { keywords: ["drive", "travel", "leave"], scene: "an empty country road winding through gentle hills" },
-    { keywords: ["movie", "watch", "comfort"], scene: "a cozy armchair with a folded blanket beside a window" },
-    { keywords: ["talk", "friend", "call", "connect"], scene: "two empty chairs facing each other by a calm lake" },
+    { weight: 0, keywords: ["nap", "sleep", "lying down", "lie down", "bed", "rest in bed", "deep rest"], scene: "a quiet bedroom with soft morning light, an unmade bed with a sleeping cat curled at the foot, a window with sheer curtains drifting" },
+    { weight: 0, keywords: ["walk", "outside", "outdoor", "fresh air", "stroll"], scene: "a winding forest path with dappled sunlight through tall trees, soft moss on stones, gentle breeze moving leaves" },
+    { weight: 0, keywords: ["water", "hydrate", "drink", "glass"], scene: "a clear glass of water on a wooden table beside an open window, soft light, a small plant nearby" },
+    { weight: 0, keywords: ["sunlight", "sunshine", "morning light", "sunrise", "sun"], scene: "a soft sunrise over distant misty hills, golden light spilling across a calm lake, birds in flight" },
+    { weight: 0, keywords: ["breath", "breathe", "breathing", "deep breath"], scene: "gentle waves lapping a calm sandy shore at dawn, soft mist, a single seabird in the sky" },
+    { weight: 0, keywords: ["food", "snack", "eat", "meal", "nourish", "hungry"], scene: "a warm bowl of soup with fresh herbs and bread on a rustic wooden table, soft window light, a folded napkin" },
+    { weight: 0, keywords: ["screen", "phone", "disconnect", "unplug", "device", "tab", "app"], scene: "an open journal and a fountain pen beside a window, fresh leaves outside, no screens, soft afternoon light" },
+    { weight: 0, keywords: ["meditate", "stillness", "quiet", "silence", "calm mind"], scene: "a single old tree on a gentle hill under a soft cloudy sky, long grasses moving in the wind, a stone bench" },
+    { weight: 0, keywords: ["stretch", "yoga", "movement", "gentle exercise", "body"], scene: "a quiet morning yoga mat by a large window with plants, soft light pooling on wooden floor, a folded blanket" },
+    { weight: 0, keywords: ["journal", "write", "brain dump", "notebook", "pen", "paper"], scene: "an open journal with handwritten notes, a fountain pen resting on the page, a steaming mug beside it, warm desk lamp" },
+    { weight: 0, keywords: ["nature", "park", "garden", "trees", "forest", "outside"], scene: "a peaceful garden path lined with flowering plants and ferns, dappled sunlight, a wooden bench under a tree" },
+    { weight: 0, keywords: ["tea", "coffee", "warm drink", "mug", "cup"], scene: "a steaming cup of tea on a windowsill at dawn, mist on the glass, a folded book beside it" },
+    { weight: 0, keywords: ["shower", "bath", "wash", "rinse"], scene: "soft water flowing over smooth river stones, dappled forest light, ferns nearby" },
+    { weight: 0, keywords: ["drive", "travel", "leave", "road", "away"], scene: "an empty country road winding through gentle rolling hills at golden hour, soft clouds, distant trees" },
+    { weight: 0, keywords: ["movie", "watch", "comfort", "cozy", "blanket", "couch"], scene: "a cozy armchair with a folded woollen blanket and a steaming mug, beside a window with rain softly falling" },
+    { weight: 0, keywords: ["talk", "friend", "call", "connect", "people", "loved"], scene: "two empty wooden chairs facing each other on a porch overlooking a calm lake at sunset" },
+    { weight: 0, keywords: ["end the day", "stop working", "shut down", "close laptop", "log off"], scene: "a closed laptop with a folded blanket beside it on a soft armchair, a warm lamp glowing, evening light through the window" },
+    { weight: 0, keywords: ["light task", "admin", "simple work", "easy work", "low effort"], scene: "a tidy desk with a small open notebook, a single pen, a cup of tea, soft afternoon light filtering through curtains" },
+    { weight: 0, keywords: ["overwhelm", "cluttered", "scattered", "fog", "stuck", "depleted"], scene: "mist clearing slowly over a still mountain lake at dawn, a small wooden dock, a single boat tied at rest" },
+    { weight: 0, keywords: ["strong foundation", "stable", "solid", "grounded"], scene: "an old strong tree with deep roots on a calm hillside, soft golden afternoon light, distant mountains" },
   ];
 
-  // Look for the highest priority keyword match across the first 2 bullets
-  const searchText = bullets.slice(0, 3).join(" ").toLowerCase();
-  for (const { keywords, scene } of conceptMap) {
-    if (keywords.some(kw => searchText.includes(kw))) {
-      return scene;
-    }
+  // Count keyword hits across combined text
+  conceptMap.forEach(concept => {
+    concept.keywords.forEach(kw => {
+      const regex = new RegExp("\\b" + kw.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"), "gi");
+      const matches = combinedText.match(regex);
+      if (matches) concept.weight += matches.length;
+    });
+  });
+
+  // Sort by weight desc; pick top scene that has at least one hit
+  conceptMap.sort((a, b) => b.weight - a.weight);
+  const topConcept = conceptMap[0];
+
+  if (topConcept.weight === 0) {
+    return "a quiet path leading into a misty forest at dawn, soft light, gentle stillness";
   }
 
-  // Fallback: a generally calming scene
-  return "a quiet path leading into a misty forest at dawn";
+  // Sometimes blend top two if both have hits, for richer scenes
+  if (conceptMap[1].weight > 0 && conceptMap[1].weight >= topConcept.weight * 0.6) {
+    return topConcept.scene + ", with hints of " + conceptMap[1].scene.split(",")[0];
+  }
+
+  return topConcept.scene;
 }
 
 function buildPollinationsUrl(scene) {
@@ -268,6 +292,7 @@ function buildPollinationsUrl(scene) {
 }
 
 function Scorecard() {
+  const { useEffect } = React;
   const [ratings, setRatings] = useState(
     Object.fromEntries(FIELDS.map((f) => [f.key, 0]))
   );
@@ -277,6 +302,26 @@ function Scorecard() {
   const [copied, setCopied] = useState("");
   const [imageUrl, setImageUrl] = useState("");
   const [imageLoaded, setImageLoaded] = useState(false);
+  const [imageError, setImageError] = useState(false);
+  const [imageTimedOut, setImageTimedOut] = useState(false);
+
+  // Timeout: if image hasn't loaded in 20 seconds, show timeout state
+  useEffect(() => {
+    if (!imageUrl || imageLoaded || imageError) return;
+    const timer = setTimeout(() => {
+      if (!imageLoaded) setImageTimedOut(true);
+    }, 20000);
+    return () => clearTimeout(timer);
+  }, [imageUrl, imageLoaded, imageError]);
+
+  const regenerateImage = () => {
+    if (!response) return;
+    const scene = extractVisualConcept(response);
+    setImageLoaded(false);
+    setImageError(false);
+    setImageTimedOut(false);
+    setImageUrl(buildPollinationsUrl(scene));
+  };
 
   const setRating = (key, value) => {
     setRatings((prev) => ({
@@ -291,8 +336,16 @@ function Scorecard() {
   const buildScorecard = () =>
     FIELDS.map((f) => `${f.label} : ${ratings[f.key] || "_"}`).join("\n");
 
-  const buildScorecardWithPrompt = () =>
-    PROMPT_PREFIX + buildScorecard();
+  const buildScorecardWithPrompt = () => {
+    const now = new Date();
+    const timeString = now.toLocaleString(undefined, {
+      weekday: "long",
+      hour: "numeric",
+      minute: "2-digit",
+      hour12: true,
+    });
+    return PROMPT_PREFIX + "Current time: " + timeString + "\n\n" + buildScorecard();
+  };
 
   const handleCopyPlain = async () => {
     const ok = await copyToClipboard(buildScorecard());
@@ -316,6 +369,8 @@ function Scorecard() {
     setResponse("");
     setImageUrl("");
     setImageLoaded(false);
+    setImageError(false);
+    setImageTimedOut(false);
     try {
       const res = await fetch(WEBHOOK_URL, {
         method: "POST",
@@ -326,7 +381,6 @@ function Scorecard() {
       const data = await res.json();
       const text = data.analysis || data.text || data.response || data.output || JSON.stringify(data);
       setResponse(text);
-      // Kick off image generation from the recovery actions
       const scene = extractVisualConcept(text);
       setImageUrl(buildPollinationsUrl(scene));
     } catch (err) {
@@ -343,6 +397,8 @@ function Scorecard() {
     setCopied("");
     setImageUrl("");
     setImageLoaded(false);
+    setImageError(false);
+    setImageTimedOut(false);
   };
 
   return (
@@ -571,43 +627,78 @@ function Scorecard() {
         {response && (
           <>
             {imageUrl && (
-              <div style={{
-                marginTop: 32,
-                background: "#ffffff",
-                border: "1px solid rgba(232, 227, 213, 0.15)",
-                borderRadius: 4,
-                overflow: "hidden",
-                position: "relative",
-                minHeight: imageLoaded ? "auto" : 200,
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "center",
-              }}>
-                {!imageLoaded && (
-                  <div style={{
-                    position: "absolute",
-                    fontFamily: "'JetBrains Mono', monospace",
-                    fontSize: 11,
-                    letterSpacing: "0.15em",
-                    color: "rgba(15, 20, 17, 0.4)",
-                    textTransform: "uppercase",
-                  }}>
-                    Drawing your scene…
-                  </div>
-                )}
-                <img
-                  src={imageUrl}
-                  alt="A line drawing reflecting your recovery action"
-                  onLoad={() => setImageLoaded(true)}
-                  onError={() => setImageLoaded(true)}
+              <div style={{ marginTop: 32 }}>
+                <div style={{
+                  background: "#ffffff",
+                  border: "1px solid rgba(232, 227, 213, 0.15)",
+                  borderRadius: 4,
+                  overflow: "hidden",
+                  position: "relative",
+                  minHeight: imageLoaded ? "auto" : 200,
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                }}>
+                  {!imageLoaded && !imageError && !imageTimedOut && (
+                    <div style={{
+                      position: "absolute",
+                      fontFamily: "'JetBrains Mono', monospace",
+                      fontSize: 11,
+                      letterSpacing: "0.15em",
+                      color: "rgba(15, 20, 17, 0.4)",
+                      textTransform: "uppercase",
+                      textAlign: "center",
+                      padding: "0 20px",
+                    }}>
+                      Sketching a small moment for you…
+                    </div>
+                  )}
+                  {(imageError || imageTimedOut) && !imageLoaded && (
+                    <div style={{
+                      padding: "32px 20px",
+                      textAlign: "center",
+                      fontFamily: "'JetBrains Mono', monospace",
+                      fontSize: 11,
+                      letterSpacing: "0.12em",
+                      color: "rgba(15, 20, 17, 0.5)",
+                      textTransform: "uppercase",
+                    }}>
+                      The sketch took too long. Tap below to try again.
+                    </div>
+                  )}
+                  <img
+                    src={imageUrl}
+                    alt="A line drawing reflecting your recovery action"
+                    onLoad={() => setImageLoaded(true)}
+                    onError={() => setImageError(true)}
+                    style={{
+                      width: "100%",
+                      height: "auto",
+                      display: imageLoaded ? "block" : "none",
+                      opacity: imageLoaded ? 1 : 0,
+                      transition: "opacity 400ms ease",
+                    }}
+                  />
+                </div>
+                <button
+                  onClick={regenerateImage}
                   style={{
                     width: "100%",
-                    height: "auto",
-                    display: "block",
-                    opacity: imageLoaded ? 1 : 0,
-                    transition: "opacity 400ms ease",
+                    marginTop: 8,
+                    padding: "10px 16px",
+                    background: "transparent",
+                    color: "rgba(232, 227, 213, 0.7)",
+                    border: "1px solid rgba(232, 227, 213, 0.15)",
+                    borderRadius: 4,
+                    fontSize: 11,
+                    fontFamily: "'JetBrains Mono', monospace",
+                    letterSpacing: "0.15em",
+                    textTransform: "uppercase",
+                    cursor: "pointer",
                   }}
-                />
+                >
+                  {imageLoaded ? "Sketch another" : (imageError || imageTimedOut ? "Try again" : "Sketch another")}
+                </button>
               </div>
             )}
             <div className="response" style={{
