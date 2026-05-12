@@ -284,6 +284,42 @@ function Scorecard() {
       <div style={{ width: "100%", maxWidth: 520 }}>
 
         <header style={{ marginBottom: 28 }}>
+          <svg
+            viewBox="0 0 200 80"
+            xmlns="http://www.w3.org/2000/svg"
+            style={{
+              width: "100%",
+              maxWidth: 200,
+              height: "auto",
+              display: "block",
+              marginBottom: 20,
+              opacity: 0.9,
+            }}
+            aria-hidden="true"
+          >
+            {/* Sun */}
+            <circle cx="138" cy="32" r="9" fill="none" stroke="#c9a961" strokeWidth="1" opacity="0.7" />
+            {/* Back mountain */}
+            <path
+              d="M 10 65 L 55 25 L 90 50 L 125 18 L 165 48 L 195 30 L 195 65 Z"
+              fill="none"
+              stroke="#c9a961"
+              strokeWidth="1.2"
+              strokeLinejoin="round"
+              opacity="0.55"
+            />
+            {/* Front mountain */}
+            <path
+              d="M 0 70 L 38 42 L 72 60 L 110 35 L 148 58 L 180 45 L 200 55 L 200 70 Z"
+              fill="none"
+              stroke="#c9a961"
+              strokeWidth="1.5"
+              strokeLinejoin="round"
+            />
+            {/* Ground line */}
+            <line x1="0" y1="70" x2="200" y2="70" stroke="#c9a961" strokeWidth="1" opacity="0.4" />
+          </svg>
+
           <div style={{
             fontFamily: "'JetBrains Mono', monospace",
             fontSize: 11,
