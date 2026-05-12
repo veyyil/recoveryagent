@@ -4,7 +4,7 @@
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
 <meta name="theme-color" content="#0f1411" />
-<title>Scorecard</title>
+<title>Daily Check-in and Recovery</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@400;500&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
@@ -60,6 +60,41 @@
     vertical-align: middle;
     margin-right: 8px;
   }
+
+  .intro-section {
+    font-size: 16px;
+    line-height: 1.55;
+    color: rgba(232, 227, 213, 0.75);
+  }
+  .intro-section p { margin: 0 0 12px 0; }
+  .intro-section p:last-child { margin-bottom: 0; }
+  .intro-section .label {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px;
+    letter-spacing: 0.2em;
+    text-transform: uppercase;
+    color: #c9a961;
+    display: block;
+    margin-bottom: 6px;
+  }
+
+  .copy-buttons {
+    display: flex;
+    gap: 8px;
+    margin-top: 12px;
+  }
+  .copy-buttons button { flex: 1; }
+  @media (max-width: 420px) {
+    .copy-buttons { flex-direction: column; }
+  }
+
+  .helper-text {
+    font-size: 13px;
+    line-height: 1.5;
+    color: rgba(232, 227, 213, 0.55);
+    margin-top: 10px;
+    font-style: italic;
+  }
 </style>
 </head>
 <body>
@@ -72,9 +107,7 @@
 <script type="text/babel">
 const { useState } = React;
 
-// ==== CONFIG: paste your n8n production webhook URL below ====
 const WEBHOOK_URL = "https://n8n.veyyil.com/webhook/recovery";
-// =============================================================
 
 const FIELDS = [
   { label: "Sleep", key: "sleep" },
@@ -87,7 +120,30 @@ const FIELDS = [
   { label: "Stresslessness", key: "stresslessness" },
 ];
 
-// Render inline bold: **text** → <strong>text</strong>
+const PROMPT_PREFIX = `You are a Founder Recovery Guide.
+
+Help me recover clarity, calmness, energy, focus, and stability based on the scorecard below. I operate in high-pressure, high-cognition environments. Give practical, emotionally intelligent recovery advice that helps me get back to functioning well.
+
+Tone: calm, simple, human, direct. No corporate, robotic, clinical, or therapeutic language. Talk to me like a trusted friend who knows what I need right now.
+
+Score meanings:
+1 = low, recovery needed
+2 = medium, correction needed
+3 = good, stable
+
+Tailor advice based on the time of day (early morning, afternoon, evening, late night). If many factors are low, prioritize rest and recovery over productivity. If only one or two are low, suggest targeted micro-recoveries.
+
+Output exactly this format:
+
+## Situation Report
+A flowing 3-sentence paragraph covering: current state, main bottleneck, recovery needed.
+
+## Recovery Actions
+5 to 8 short bullets. Each immediately actionable. Include one bullet for suitable work right now and one for work to avoid right now.
+
+My current scorecard:
+`;
+
 function renderInline(text) {
   const parts = text.split(/(\*\*[^*]+\*\*)/g);
   return parts.map((part, i) => {
@@ -132,6 +188,24 @@ function renderMarkdown(text) {
   });
 }
 
+async function copyToClipboard(text) {
+  try {
+    await navigator.clipboard.writeText(text);
+    return true;
+  } catch (err) {
+    const ta = document.createElement("textarea");
+    ta.value = text;
+    ta.style.position = "fixed";
+    ta.style.opacity = "0";
+    document.body.appendChild(ta);
+    ta.select();
+    let ok = false;
+    try { ok = document.execCommand("copy"); } catch (e) {}
+    document.body.removeChild(ta);
+    return ok;
+  }
+}
+
 function Scorecard() {
   const [ratings, setRatings] = useState(
     Object.fromEntries(FIELDS.map((f) => [f.key, 0]))
@@ -139,14 +213,14 @@ function Scorecard() {
   const [loading, setLoading] = useState(false);
   const [response, setResponse] = useState("");
   const [error, setError] = useState("");
-  const [copied, setCopied] = useState(false);
+  const [copied, setCopied] = useState("");
 
   const setRating = (key, value) => {
     setRatings((prev) => ({
       ...prev,
       [key]: prev[key] === value ? 0 : value,
     }));
-    setCopied(false);
+    setCopied("");
   };
 
   const allRated = FIELDS.every((f) => ratings[f.key] > 0);
@@ -154,27 +228,22 @@ function Scorecard() {
   const buildScorecard = () =>
     FIELDS.map((f) => `${f.label} : ${ratings[f.key] || "_"}`).join("\n");
 
-  const handleCopy = async () => {
-    const text = buildScorecard();
-    try {
-      await navigator.clipboard.writeText(text);
-      setCopied(true);
-      setTimeout(() => setCopied(false), 2000);
-    } catch (err) {
-      const ta = document.createElement("textarea");
-      ta.value = text;
-      ta.style.position = "fixed";
-      ta.style.opacity = "0";
-      document.body.appendChild(ta);
-      ta.select();
-      try {
-        document.execCommand("copy");
-        setCopied(true);
-        setTimeout(() => setCopied(false), 2000);
-      } catch (e) {
-        console.error("Copy failed", e);
-      }
-      document.body.removeChild(ta);
+  const buildScorecardWithPrompt = () =>
+    PROMPT_PREFIX + buildScorecard();
+
+  const handleCopyPlain = async () => {
+    const ok = await copyToClipboard(buildScorecard());
+    if (ok) {
+      setCopied("plain");
+      setTimeout(() => setCopied(""), 2000);
+    }
+  };
+
+  const handleCopyWithPrompt = async () => {
+    const ok = await copyToClipboard(buildScorecardWithPrompt());
+    if (ok) {
+      setCopied("prompt");
+      setTimeout(() => setCopied(""), 2000);
     }
   };
 
@@ -203,7 +272,7 @@ function Scorecard() {
     setRatings(Object.fromEntries(FIELDS.map((f) => [f.key, 0])));
     setResponse("");
     setError("");
-    setCopied(false);
+    setCopied("");
   };
 
   return (
@@ -214,7 +283,8 @@ function Scorecard() {
       justifyContent: "center",
     }}>
       <div style={{ width: "100%", maxWidth: 520 }}>
-        <header style={{ marginBottom: 36 }}>
+
+        <header style={{ marginBottom: 28 }}>
           <div style={{
             fontFamily: "'JetBrains Mono', monospace",
             fontSize: 11,
@@ -223,7 +293,7 @@ function Scorecard() {
             textTransform: "uppercase",
             marginBottom: 8,
           }}>
-            Daily Check-in
+            For Founders & Operators
           </div>
           <h1 style={{
             fontSize: 38,
@@ -232,9 +302,32 @@ function Scorecard() {
             margin: 0,
             lineHeight: 1.1,
           }}>
-            Scorecard
+            Daily Check-in and Recovery
           </h1>
         </header>
+
+        <section className="intro-section" style={{
+          marginBottom: 36,
+          padding: 20,
+          background: "rgba(232, 227, 213, 0.04)",
+          border: "1px solid rgba(232, 227, 213, 0.08)",
+          borderRadius: 4,
+        }}>
+          <span className="label">How to use this</span>
+          <p>
+            Rate each of the eight factors below from 1 to 3 stars based on how you feel right now.
+            <strong style={{ color: "#e8e3d5", fontWeight: 500 }}> 1 star</strong> means recovery is needed,
+            <strong style={{ color: "#e8e3d5", fontWeight: 500 }}> 2 stars</strong> means correction is needed, and
+            <strong style={{ color: "#e8e3d5", fontWeight: 500 }}> 3 stars</strong> means you're stable in that area.
+          </p>
+          <p>
+            Hit <strong style={{ color: "#e8e3d5", fontWeight: 500 }}>Submit for Recovery Plan</strong> and you'll
+            get a short situation report and a list of practical recovery actions tailored to your current state and the time of day.
+          </p>
+          <p>
+            Best done once or twice a day, especially when you feel off and aren't sure why.
+          </p>
+        </section>
 
         <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
           {FIELDS.map((field, i) => (
@@ -272,9 +365,33 @@ function Scorecard() {
           ))}
         </div>
 
-        {/* Scorecard preview, always visible */}
+        {/* Submit button */}
+        <button
+          onClick={handleSubmit}
+          disabled={!allRated || loading}
+          style={{
+            width: "100%",
+            marginTop: 28,
+            padding: "16px 20px",
+            background: (allRated && !loading) ? "#c9a961" : "rgba(201, 169, 97, 0.2)",
+            color: (allRated && !loading) ? "#0f1411" : "rgba(232, 227, 213, 0.4)",
+            border: "none",
+            borderRadius: 4,
+            fontSize: 13,
+            fontFamily: "'JetBrains Mono', monospace",
+            letterSpacing: "0.15em",
+            textTransform: "uppercase",
+            cursor: (allRated && !loading) ? "pointer" : "not-allowed",
+            transition: "background 150ms ease",
+            fontWeight: 500,
+          }}
+        >
+          {loading ? <><span className="spinner"></span>Generating Plan</> : "Submit for Recovery Plan"}
+        </button>
+
+        {/* Scorecard preview */}
         <div style={{
-          marginTop: 32,
+          marginTop: 28,
           padding: 20,
           background: "rgba(232, 227, 213, 0.04)",
           border: "1px solid rgba(232, 227, 213, 0.08)",
@@ -288,67 +405,70 @@ function Scorecard() {
           {buildScorecard()}
         </div>
 
-        <button
-          onClick={handleCopy}
-          style={{
-            width: "100%",
-            marginTop: 12,
-            padding: "12px 20px",
-            background: "transparent",
-            color: "#e8e3d5",
-            border: "1px solid rgba(232, 227, 213, 0.2)",
-            borderRadius: 4,
-            fontSize: 12,
-            fontFamily: "'JetBrains Mono', monospace",
-            letterSpacing: "0.15em",
-            textTransform: "uppercase",
-            cursor: "pointer",
-          }}
-        >
-          {copied ? "Copied" : "Copy Scorecard"}
-        </button>
-
-        <div style={{ display: "flex", gap: 12, marginTop: 24 }}>
+        {/* Two copy buttons */}
+        <div className="copy-buttons">
           <button
-            onClick={handleSubmit}
-            disabled={!allRated || loading}
+            onClick={handleCopyPlain}
             style={{
-              flex: 1,
-              padding: "14px 20px",
-              background: (allRated && !loading) ? "#c9a961" : "rgba(201, 169, 97, 0.2)",
-              color: (allRated && !loading) ? "#0f1411" : "rgba(232, 227, 213, 0.4)",
-              border: "none",
-              borderRadius: 4,
-              fontSize: 13,
-              fontFamily: "'JetBrains Mono', monospace",
-              letterSpacing: "0.15em",
-              textTransform: "uppercase",
-              cursor: (allRated && !loading) ? "pointer" : "not-allowed",
-              transition: "background 150ms ease",
-            }}
-          >
-            {loading ? <><span className="spinner"></span>Analysing</> : "Submit"}
-          </button>
-          <button
-            onClick={handleReset}
-            disabled={loading}
-            style={{
-              padding: "14px 20px",
+              padding: "12px 16px",
               background: "transparent",
               color: "#e8e3d5",
               border: "1px solid rgba(232, 227, 213, 0.2)",
               borderRadius: 4,
-              fontSize: 13,
+              fontSize: 11,
               fontFamily: "'JetBrains Mono', monospace",
-              letterSpacing: "0.15em",
+              letterSpacing: "0.12em",
               textTransform: "uppercase",
-              cursor: loading ? "not-allowed" : "pointer",
-              opacity: loading ? 0.5 : 1,
+              cursor: "pointer",
             }}
           >
-            Reset
+            {copied === "plain" ? "Copied" : "Copy Scorecard"}
+          </button>
+          <button
+            onClick={handleCopyWithPrompt}
+            style={{
+              padding: "12px 16px",
+              background: "transparent",
+              color: "#e8e3d5",
+              border: "1px solid rgba(232, 227, 213, 0.2)",
+              borderRadius: 4,
+              fontSize: 11,
+              fontFamily: "'JetBrains Mono', monospace",
+              letterSpacing: "0.12em",
+              textTransform: "uppercase",
+              cursor: "pointer",
+            }}
+          >
+            {copied === "prompt" ? "Copied" : "Copy Scorecard + Prompt"}
           </button>
         </div>
+
+        <p className="helper-text">
+          The <strong style={{ color: "rgba(232, 227, 213, 0.75)" }}>Copy Scorecard</strong> button copies just the scores, useful for logging in a journal or sending to a friend.
+          The <strong style={{ color: "rgba(232, 227, 213, 0.75)" }}>Copy Scorecard + Prompt</strong> button copies the scores along with a ready-made prompt you can paste into any AI tool (ChatGPT, Claude, Gemini, etc.) to get a similar recovery plan. Useful if this tool is down or you're offline from this site.
+        </p>
+
+        <button
+          onClick={handleReset}
+          disabled={loading}
+          style={{
+            width: "100%",
+            marginTop: 20,
+            padding: "10px 20px",
+            background: "transparent",
+            color: "rgba(232, 227, 213, 0.5)",
+            border: "1px solid rgba(232, 227, 213, 0.15)",
+            borderRadius: 4,
+            fontSize: 11,
+            fontFamily: "'JetBrains Mono', monospace",
+            letterSpacing: "0.15em",
+            textTransform: "uppercase",
+            cursor: loading ? "not-allowed" : "pointer",
+            opacity: loading ? 0.5 : 1,
+          }}
+        >
+          Reset
+        </button>
 
         {error && (
           <div style={{
@@ -376,6 +496,19 @@ function Scorecard() {
             {renderMarkdown(response)}
           </div>
         )}
+
+        <footer style={{
+          marginTop: 48,
+          paddingTop: 24,
+          borderTop: "1px solid rgba(232, 227, 213, 0.08)",
+          fontFamily: "'JetBrains Mono', monospace",
+          fontSize: 11,
+          letterSpacing: "0.1em",
+          color: "rgba(232, 227, 213, 0.35)",
+          textAlign: "center",
+        }}>
+          A simple recovery tool for high-cognition operators.
+        </footer>
       </div>
     </div>
   );
