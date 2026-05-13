@@ -295,6 +295,42 @@ async function copyToClipboard(text) {
   }
 }
 
+function getBrowserTimeContext() {
+  const now = new Date();
+
+  const timeZone =
+    Intl.DateTimeFormat().resolvedOptions().timeZone || "Unknown";
+
+  return {
+    iso: now.toISOString(),
+
+    local_datetime: now.toLocaleString(undefined, {
+      weekday: "long",
+      year: "numeric",
+      month: "long",
+      day: "numeric",
+      hour: "numeric",
+      minute: "2-digit",
+      second: "2-digit",
+      hour12: true,
+    }),
+
+    local_day: now.toLocaleDateString(undefined, {
+      weekday: "long",
+    }),
+
+    local_time: now.toLocaleTimeString(undefined, {
+      hour: "numeric",
+      minute: "2-digit",
+      hour12: true,
+    }),
+
+    timezone: timeZone,
+    timezone_offset_minutes: now.getTimezoneOffset(),
+    locale: navigator.language,
+  };
+}
+
 // Build a visual concept from the full response: situation report mood + all recovery actions
 function extractVisualConcept(text) {
   if (!text) return "a quiet path leading into a misty forest at dawn";
@@ -458,7 +494,12 @@ function Scorecard() {
       const res = await fetch(WEBHOOK_URL, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ ...ratings, notes: notes.trim() }),
+        // body: JSON.stringify({ ...ratings, notes: notes.trim() }),
+        body: JSON.stringify({
+          ...ratings,
+          notes: notes.trim(),
+          browser_time: getBrowserTimeContext(),
+        }),
       });
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       const data = await res.json();
